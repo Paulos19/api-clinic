@@ -76,7 +76,7 @@ export async function getHealthInsurances() {
 }
 
 /**
- * ATUALIZADO: Busca o ID de um paciente fazendo busca case-insensitive.
+ * CORRIGIDO: Busca o ID de um paciente com comparação de data mais robusta.
  */
 export async function findPatientId(patientName: string, patientBirthDate: string): Promise<number | null> {
     const token = await getAccessToken();
@@ -91,16 +91,29 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
         });
 
         const bookings = response.data.result?.items || [];
-        const targetBirthDate = new Date(patientBirthDate + 'T03:00:00.000Z').toISOString().split('T')[0];
-
+        
         const foundBooking = bookings.find((booking: { client: any; patient: { name: any; }; birthday: string | number | Date; }) => {
             const patientFullName = booking.client || booking.patient?.name;
-            const bookingBirthDate = booking.birthday ? new Date(booking.birthday).toISOString().split('T')[0] : null;
             
+            // --- INÍCIO DA CORREÇÃO ---
+            // Lógica robusta para comparar as datas de nascimento.
+            let bookingBirthDateFormatted = null;
+            if (booking.birthday) {
+                // Cria um objeto Date tratando a data do CRM como UTC para evitar deslocamentos de fuso horário.
+                const bookingDateObj = new Date(booking.birthday);
+                if (!isNaN(bookingDateObj.getTime())) {
+                    const year = bookingDateObj.getUTCFullYear();
+                    const month = String(bookingDateObj.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(bookingDateObj.getUTCDate()).padStart(2, '0');
+                    bookingBirthDateFormatted = `${year}-${month}-${day}`;
+                }
+            }
+            // --- FIM DA CORREÇÃO ---
+
             return (
                 patientFullName &&
                 patientFullName.toLowerCase().trim() === patientName.toLowerCase().trim() &&
-                bookingBirthDate === targetBirthDate
+                bookingBirthDateFormatted === patientBirthDate // Compara duas strings "AAAA-MM-DD"
             );
         });
 
