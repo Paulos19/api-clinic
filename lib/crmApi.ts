@@ -18,16 +18,14 @@ export interface BookingPayload {
 // --- LÓGICA ---
 let cachedToken: CrmToken | null = null;
 
-// Função para normalizar strings (remover acentos, etc.)
 const normalizeString = (str: string) => {
   if (!str) return '';
   return str
-    .normalize("NFD") // Separa os acentos dos caracteres
-    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
 };
-
 
 async function getNewAccessToken(): Promise<string> {
   const tokenUrl = `${process.env.LEGACY_URL}/oauth/v1/token`;
@@ -82,9 +80,9 @@ export async function getHealthInsurances() {
 }
 
 /**
- * CORREÇÃO FINAL: Comparação de nome e data ainda mais robusta.
+ * APRIMORADO: Busca os dados do paciente, incluindo o ID do convênio.
  */
-export async function findPatientId(patientName: string, patientBirthDate: string): Promise<number | null> {
+export async function findPatientData(patientName: string, patientBirthDate: string): Promise<{ patientId: number; healthInsuranceId: number } | null> {
     const token = await getAccessToken();
     const bookingsUrl = `${process.env.LEGACY_URL}/api/v1/integration/facilities/1/doctors/10073/addresses/1/bookings`;
     const startDate = "2020-01-01";
@@ -97,17 +95,11 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
         });
 
         const bookings = response.data.result?.items || [];
-        
-        // --- INÍCIO DA CORREÇÃO ---
         const normalizedPatientName = normalizeString(patientName);
-        // --- FIM DA CORREÇÃO ---
 
-        const foundBooking = bookings.find((booking: { client: any; patient: { name: any; }; birthday: string | number | Date; }) => {
+        const foundBooking = bookings.find((booking: any) => {
             const patientFullName = booking.client || booking.patient?.name;
-            
-            // --- INÍCIO DA CORREÇÃO ---
             const normalizedCrmName = normalizeString(patientFullName);
-            // --- FIM DA CORREÇÃO ---
 
             let bookingBirthDateFormatted = null;
             if (booking.birthday) {
@@ -119,28 +111,24 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
                     bookingBirthDateFormatted = `${year}-${month}-${day}`;
                 }
             }
-
-            return (
-                normalizedCrmName === normalizedPatientName &&
-                bookingBirthDateFormatted === patientBirthDate
-            );
+            return normalizedCrmName === normalizedPatientName && bookingBirthDateFormatted === patientBirthDate;
         });
 
         if (foundBooking) {
             const patientId = foundBooking.patient_id || foundBooking.record;
-            return patientId;
+            const healthInsuranceId = foundBooking.healthInsuranceID;
+            
+            // Retorna os dados apenas se ambos existirem
+            if (patientId && healthInsuranceId) {
+                return { patientId, healthInsuranceId };
+            }
         }
         return null;
     } catch (error) {
-        if (axios.isAxiosError(error)) {
-            console.error("Erro ao buscar agendamentos para encontrar paciente:", error.response?.data || error.message);
-        } else {
-            console.error("Erro ao buscar agendamentos para encontrar paciente:", error instanceof Error ? error.message : error);
-        }
+        console.error("Erro ao buscar agendamentos para encontrar dados do paciente:", error.response?.data || error.message);
         throw new Error("Não foi possível validar o paciente no sistema do CRM.");
     }
 }
-
 
 export async function getAvailableSlots(startDate: string, endDate: string) {
     const token = await getAccessToken();
