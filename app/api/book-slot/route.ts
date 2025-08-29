@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { findPatientId, bookSlot } from '@/lib/crmApi';
+import { findPatientData, bookSlot } from '@/lib/crmApi'; // Importar findPatientData
 
 export async function POST(request: Request) {
   try {
@@ -8,25 +8,28 @@ export async function POST(request: Request) {
       slot,
       patientName,
       patientBirthDate,
-      healthInsuranceCode,
+      // healthInsuranceCode não é mais recebido, será buscado
       consultationType,
       appointmentType,
       obs
     } = body;
 
-    if (!slot || !patientName || !patientBirthDate || !healthInsuranceCode || !consultationType) {
+    // A validação não precisa mais do healthInsuranceCode
+    if (!slot || !patientName || !patientBirthDate || !consultationType) {
       return NextResponse.json({ error: "Dados insuficientes para o agendamento." }, { status: 400 });
     }
 
-    const patient_id = await findPatientId(patientName, patientBirthDate);
+    // Busca os dados do paciente, incluindo o convênio
+    const patientData = await findPatientData(patientName, patientBirthDate);
 
-    if (!patient_id) {
+    if (!patientData) {
       return NextResponse.json({ error: "Paciente não encontrado. Verifique o nome e a data de nascimento." }, { status: 404 });
     }
 
+    // Monta o payload com o healthInsuranceCode obtido da busca
     const bookingPayload = {
-      patient_id,
-      healthInsuranceCode,
+      patient_id: patientData.patientId,
+      healthInsuranceCode: patientData.healthInsuranceId, // Usando o valor retornado
       consultationType,
       appointmentType,
       obs
