@@ -18,7 +18,17 @@ export interface BookingPayload {
 // --- LÓGICA ---
 let cachedToken: CrmToken | null = null;
 
-// Função para obter o token (sem alterações)
+// Função para normalizar strings (remover acentos, etc.)
+const normalizeString = (str: string) => {
+  if (!str) return '';
+  return str
+    .normalize("NFD") // Separa os acentos dos caracteres
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .toLowerCase()
+    .trim();
+};
+
+
 async function getNewAccessToken(): Promise<string> {
   const tokenUrl = `${process.env.LEGACY_URL}/oauth/v1/token`;
   const clientId = process.env.LEGACY_CLIENT_ID;
@@ -53,9 +63,6 @@ export async function getAccessToken(): Promise<string> {
   return getNewAccessToken();
 }
 
-/**
- * ATUALIZADO: Busca a lista de convênios do endpoint correto.
- */
 export async function getHealthInsurances() {
   const token = await getAccessToken();
   const insurancesUrl = `${process.env.LEGACY_URL}/api/v1/integration/insurance-providers`;
@@ -65,7 +72,6 @@ export async function getHealthInsurances() {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     const items = response.data.result?.items || [];
-    // Filtra apenas os ativos e ordena por nome
     return items
       .filter((item: { status: boolean; }) => item.status === true)
       .sort((a: { name: string; }, b: { name: any; }) => a.name.localeCompare(b.name));
@@ -76,7 +82,7 @@ export async function getHealthInsurances() {
 }
 
 /**
- * CORRIGIDO: Busca o ID de um paciente com comparação de data mais robusta.
+ * CORREÇÃO FINAL: Comparação de nome e data ainda mais robusta.
  */
 export async function findPatientId(patientName: string, patientBirthDate: string): Promise<number | null> {
     const token = await getAccessToken();
@@ -92,14 +98,19 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
 
         const bookings = response.data.result?.items || [];
         
+        // --- INÍCIO DA CORREÇÃO ---
+        const normalizedPatientName = normalizeString(patientName);
+        // --- FIM DA CORREÇÃO ---
+
         const foundBooking = bookings.find((booking: { client: any; patient: { name: any; }; birthday: string | number | Date; }) => {
             const patientFullName = booking.client || booking.patient?.name;
             
             // --- INÍCIO DA CORREÇÃO ---
-            // Lógica robusta para comparar as datas de nascimento.
+            const normalizedCrmName = normalizeString(patientFullName);
+            // --- FIM DA CORREÇÃO ---
+
             let bookingBirthDateFormatted = null;
             if (booking.birthday) {
-                // Cria um objeto Date tratando a data do CRM como UTC para evitar deslocamentos de fuso horário.
                 const bookingDateObj = new Date(booking.birthday);
                 if (!isNaN(bookingDateObj.getTime())) {
                     const year = bookingDateObj.getUTCFullYear();
@@ -108,12 +119,10 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
                     bookingBirthDateFormatted = `${year}-${month}-${day}`;
                 }
             }
-            // --- FIM DA CORREÇÃO ---
 
             return (
-                patientFullName &&
-                patientFullName.toLowerCase().trim() === patientName.toLowerCase().trim() &&
-                bookingBirthDateFormatted === patientBirthDate // Compara duas strings "AAAA-MM-DD"
+                normalizedCrmName === normalizedPatientName &&
+                bookingBirthDateFormatted === patientBirthDate
             );
         });
 
@@ -123,13 +132,16 @@ export async function findPatientId(patientName: string, patientBirthDate: strin
         }
         return null;
     } catch (error) {
-        console.error("Erro ao buscar agendamentos para encontrar paciente:", error.response?.data || error.message);
+        if (axios.isAxiosError(error)) {
+            console.error("Erro ao buscar agendamentos para encontrar paciente:", error.response?.data || error.message);
+        } else {
+            console.error("Erro ao buscar agendamentos para encontrar paciente:", error instanceof Error ? error.message : error);
+        }
         throw new Error("Não foi possível validar o paciente no sistema do CRM.");
     }
 }
 
 
-// Funções getAvailableSlots e bookSlot (sem alterações)
 export async function getAvailableSlots(startDate: string, endDate: string) {
     const token = await getAccessToken();
     const slotsUrl = `${process.env.LEGACY_URL}/api/v1/integration/facilities/1/doctors/10073/addresses/1/available-slots`;
