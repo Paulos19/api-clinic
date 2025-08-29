@@ -33,7 +33,7 @@ async function getNewAccessToken(): Promise<string> {
   const clientSecret = process.env.LEGACY_CLIENT_SECRET;
 
   if (!process.env.LEGACY_URL || !clientId || !clientSecret) {
-    throw new Error("Variáveis de ambiente do CRM não configuradas.");
+    throw new Error("Variáveis de ambiente do CRM não configuradas...");
   }
   const credentials = `${clientId}:${clientSecret}`;
   const encodedCredentials = Buffer.from(credentials).toString('base64');
