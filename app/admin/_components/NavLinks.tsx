@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MessageSquare, Settings, LayoutDashboard, Stars } from 'lucide-react';
+import { MessageSquare, Settings, LayoutDashboard, Stars, CalendarPlus } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +15,7 @@ const links = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/conversations', icon: MessageSquare, label: 'Conversas' },
   { href: '/admin/knowledge-base', icon: Stars, label: 'Base de Conhecimento' },
+  { href: '/admin/agendamentos', icon: CalendarPlus, label: 'Agendamento Manual' },
   { href: '/admin/settings', icon: Settings, label: 'Configurações' },
 ];
 
