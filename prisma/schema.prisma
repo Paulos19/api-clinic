@@ -16,3 +16,10 @@ model Conversation {
 
   @@index([sessionId, createdAt])
 }
+
+model KnowledgeBase {
+  id              Int     @id @default(1)
+  basePrompt      String? @db.Text
+  rawInstructions String? @db.Text
+  knowledgeText   String? @db.Text
+}
