@@ -18,9 +18,19 @@ model Conversation {
 }
 
 model KnowledgeBase {
-  id              Int     @id @default(1)
-  basePrompt      String? @db.Text
-  rawInstructions String? @db.Text
-  knowledgeText   String? @db.Text
-  updateCount     Int     @default(0)
+  id            Int      @id @default(1)
+  knowledgeText String?  @db.Text
+  updateCount   Int      @default(0)
+  
+  fields        KnowledgeField[]
+}
+
+model KnowledgeField {
+  id              String   @id @default(cuid())
+  title           String
+  content         String   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  knowledgeBaseId Int
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
 }
