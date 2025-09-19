@@ -22,4 +22,5 @@ model KnowledgeBase {
   basePrompt      String? @db.Text
   rawInstructions String? @db.Text
   knowledgeText   String? @db.Text
+  updateCount     Int     @default(0)
 }

@@ -1,37 +1,85 @@
-'use client';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrainCircuit, MessageSquareText, FileJson } from "lucide-react";
+import { PrismaClient } from '@prisma/client';
 
-import { useRouter } from 'next/navigation';
-import { ExportManager } from './ExportManager';
-import { KnowledgeBaseManager } from './KnowledgeBaseManager';
+const prisma = new PrismaClient();
 
-export default function DashboardPage() {
-  const router = useRouter();
+async function getDashboardStats() {
+    const kb = await prisma.knowledgeBase.findUnique({
+        where: { id: 1 },
+        select: { updateCount: true, knowledgeText: true }
+    });
 
-  const handleLogout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST' });
-    router.push('/admin/login');
-  };
+    const conversationCount = await prisma.conversation.count();
+    
+    return {
+        updateCount: kb?.updateCount || 0,
+        knowledgeText: kb?.knowledgeText || 'Nenhuma base de conhecimento publicada.',
+        conversationCount,
+    }
+}
 
-  return (
-    <div className="flex min-h-screen flex-col items-center bg-gray-50 p-4 sm:p-8">
-        <div className="w-full max-w-4xl bg-white p-6 sm:p-8 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Dashboard de Prompts</h1>
-                <button onClick={handleLogout} className="btn btn-outline">
-                    Sair
-                </button>
+export default async function DashboardPage() {
+    const stats = await getDashboardStats();
+
+    return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Atualizações da Base de Conhecimento</CardTitle>
+                        <BrainCircuit className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.updateCount}</div>
+                        <p className="text-xs text-muted-foreground">Vezes que o conhecimento foi publicado</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total de Mensagens Salvas</CardTitle>
+                        <MessageSquareText className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.conversationCount}</div>
+                        <p className="text-xs text-muted-foreground">Registros no banco de dados</p>
+                    </CardContent>
+                </Card>
             </div>
-            
-            <p className="mb-6 text-gray-600">
-                Bem-vindo ao painel de administração. Use as seções abaixo para exportar conversas e gerenciar a base de conhecimento da IA.
-            </p>
 
-            {/* Seção de Exportação de Conversas */}
-            <ExportManager />
-
-            {/* Seção de Gerenciamento de Prompt e Base de Conhecimento */}
-            <KnowledgeBaseManager />
+            <div className="grid gap-4 md:grid-cols-2">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Regras e Habilidades Atuais</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs bg-muted p-1 rounded-md">/receita</code>
+                            <span>- Inicia o fluxo de solicitação de receita.</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs bg-muted p-1 rounded-md">[AGENDAMENTO_PRONTO]</code>
+                            <span>- Sinaliza um agendamento via IA para a API.</span>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs bg-muted p-1 rounded-md">State Machine</code>
+                            <span>- Gerencia agendamentos e receitas passo a passo.</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Base de Conhecimento Atual</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground max-h-48 overflow-y-auto">
+                            {stats.knowledgeText}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
-    </div>
-  );
+    );
 }

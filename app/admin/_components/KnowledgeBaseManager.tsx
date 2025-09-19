@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ProgressButton } from './ProgressButton';
+import { Button } from '@/components/ui/button';
 
 // Texto estático do prompt base do n8n para visualização
 const basePromptText = `====== IDENTIDADE E OBJETIVO PRIMÁRIO ===
@@ -20,7 +22,11 @@ O nome do paciente é {{ $('3a. Preparar Entrada da IA').item.json.nomeUsuario }
 === FILOSOFIA DE COMUNICAÇÃO: Classe e Naturalidade ===
 Sua diretriz mais importante é NUNCA soar como um robô. Sua postura deve ser a de uma assistente eficiente e cordial. Mantenha a formalidade, mas sem ser robótica. Um toque de humor sutil e elegante é bem-vindo. Leia todo o histórico para formular a melhor resposta possível.
 
-(... O restante das regras de Comunicação, Comportamento, Habilidades, etc., continuam aqui ...)
+=== HABILIDADE PRINCIPAL: AGENDAMENTO DE CONSULTA ===
+A lista de horários formatados e prontos para o paciente é:
+{{ $('3a. Preparar Entrada da IA').item.json.horariosDisponiveisFormatados }}
+
+(... restante da lógica de agendamento e outras regras ...)
 
 HISTÓRICO DA CONVERSA ATUAL:
 {{ $('3a. Preparar Entrada da IA').item.json.historicoFormatadoParaPrompt }}
@@ -36,7 +42,6 @@ export function KnowledgeBaseManager() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState('');
 
-  // Efeito para buscar os dados iniciais do prompt no servidor
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
@@ -55,7 +60,6 @@ export function KnowledgeBaseManager() {
     fetchData();
   }, []);
   
-  // Função para salvar as alterações como rascunho
   const handleSaveDraft = async () => {
     setIsSaving(true);
     setError('');
@@ -74,7 +78,6 @@ export function KnowledgeBaseManager() {
     }
   }
 
-  // Função para usar a Gemini API para condensar e publicar o conhecimento
   const handlePublish = async () => {
     setIsPublishing(true);
     setError('');
@@ -98,20 +101,20 @@ export function KnowledgeBaseManager() {
     }
   }
 
-  if (isLoading) return <p className="text-center mt-8">Carregando gerenciador de prompt...</p>;
+  if (isLoading) return <p className="text-center mt-8 text-muted-foreground">Carregando gerenciador de prompt...</p>;
 
   return (
-    <div className="space-y-8 mt-10 border-t pt-8">
+    <div className="space-y-8">
         <h2 className="text-xl font-semibold">Gerenciamento da Base de Conhecimento da IA</h2>
         
-        {error && <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">{error}</div>}
+        {error && <div className="p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">{error}</div>}
 
         <div>
             <label htmlFor="rawInstructions" className="form-label">
                 Instruções para a IA (Base de Conhecimento)
             </label>
-            <p className="text-sm text-gray-500 mb-2">
-                Adicione aqui informações, regras e diretrizes que a Silv.IA deve saber. Ex: "Horário de almoço é das 12h às 13h.", "Não agendar consultas nas sextas à tarde.".
+            <p className="text-sm text-muted-foreground mb-2">
+                Adicione aqui informações, regras e diretrizes que a Silv.IA deve saber.
             </p>
             <textarea
                 id="rawInstructions"
@@ -119,31 +122,35 @@ export function KnowledgeBaseManager() {
                 onChange={(e) => setRawInstructions(e.target.value)}
                 rows={10}
                 className="form-input w-full"
-                placeholder="Digite as instruções aqui..."
+                placeholder="Ex: O horário de almoço é das 12h às 13h."
             />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
-             <button onClick={handleSaveDraft} disabled={isSaving || isPublishing} className="btn btn-secondary">
+             <Button onClick={handleSaveDraft} disabled={isSaving || isPublishing} variant="secondary">
                 {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
-            </button>
-            <button onClick={handlePublish} disabled={isSaving || isPublishing} className="btn btn-primary">
+            </Button>
+            <ProgressButton 
+              onClick={handlePublish} 
+              isLoading={isPublishing} 
+              disabled={isSaving}
+            >
                 {isPublishing ? 'Publicando com IA...' : 'Gerar e Publicar Conhecimento'}
-            </button>
+            </ProgressButton>
         </div>
 
          <div>
             <h3 className="text-lg font-semibold">Conhecimento Publicado (Em uso pelo n8n)</h3>
-            <div className="mt-2 p-4 bg-gray-50 border rounded-md text-sm text-gray-700 whitespace-pre-wrap">
+            <div className="mt-2 p-4 bg-muted border rounded-md text-sm text-muted-foreground whitespace-pre-wrap max-h-60 overflow-y-auto">
                 {knowledgeText || 'Nenhuma base de conhecimento foi publicada ainda.'}
             </div>
         </div>
 
         <div className="border-t pt-8">
-            <label htmlFor="basePrompt" className="form-label text-red-600">
+            <label htmlFor="basePrompt" className="form-label text-destructive">
                 Prompt Base (PERIGO: Apenas Visualização)
             </label>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
                Esta é a estrutura principal do prompt usada no n8n. Ela não é editável por aqui.
             </p>
             <textarea
@@ -151,7 +158,7 @@ export function KnowledgeBaseManager() {
                 readOnly
                 value={basePromptText}
                 rows={15}
-                className="form-input w-full font-mono text-xs bg-gray-100 cursor-not-allowed"
+                className="form-input w-full font-mono text-xs bg-muted/50 cursor-not-allowed"
             />
         </div>
     </div>

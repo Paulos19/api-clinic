@@ -79,12 +79,8 @@ export async function PUT(request: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
-      Você é um assistente especialista em otimizar prompts para IAs de conversação.
-      Sua tarefa é pegar as instruções abaixo, que foram escritas por um administrador, e condensá-las em um texto coeso, claro e bem estruturado.
-      Este texto será inserido em um prompt maior, então ele deve ser direto e informativo. Organize em tópicos se necessário.
-      O objetivo é que a IA de conversação (Silv.IA) use este texto como sua base de conhecimento principal.
-      
-      Instruções a serem condensadas:
+      Sua tarefa é pegar as instruções abaixo e condensá-las em um texto coeso e claro para ser usado como base de conhecimento de uma IA de conversação. Organize em tópicos se necessário.
+      Instruções:
       ---
       ${rawInstructions}
       ---
@@ -93,17 +89,15 @@ export async function PUT(request: Request) {
     const result = await model.generateContent(prompt);
     const condensedText = result.response.text();
     
-    // Usa 'upsert' para atualizar o registro existente ou criar um novo se não existir
-    const updatedKb = await prisma.knowledgeBase.upsert({
+    // ATUALIZAÇÃO: Agora usa 'update' e 'increment'
+    const updatedKb = await prisma.knowledgeBase.update({
         where: { id: 1 },
-        update: { 
-            rawInstructions: rawInstructions || '', // Garante que o rascunho também seja salvo
-            knowledgeText: condensedText 
-        },
-        create: { 
-            id: 1, 
+        data: { 
+            rawInstructions: rawInstructions || '',
             knowledgeText: condensedText,
-            rawInstructions: rawInstructions || '' 
+            updateCount: {
+                increment: 1 // Incrementa o contador
+            }
         },
     });
 
