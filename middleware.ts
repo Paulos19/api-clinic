@@ -5,15 +5,9 @@ import { jwtVerify } from 'jose';
 const ADM_KEY = process.env.ADM_KEY || 'seu-segredo-super-secreto';
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
   const tokenCookie = request.cookies.get('admin-token');
 
-  // Se o usuário está tentando acessar a página de login, deixe-o passar
-  if (pathname.startsWith('/admin/login')) {
-    return NextResponse.next();
-  }
-
-  // Se não há token e o usuário tenta acessar uma rota protegida de admin
+  // Se não há token, redireciona para a página de login
   if (!tokenCookie) {
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
@@ -22,16 +16,18 @@ export async function middleware(request: NextRequest) {
   try {
     const secret = new TextEncoder().encode(ADM_KEY);
     await jwtVerify(tokenCookie.value, secret);
-    // Token é válido, permite o acesso
     return NextResponse.next();
   } catch (err) {
-    // Token é inválido, redireciona para o login
-    console.error('Falha na verificação do JWT no middleware:', err);
-    return NextResponse.redirect(new URL('/admin/login', request.url));
+    // Se o token for inválido, redireciona para o login
+    const response = NextResponse.redirect(new URL('/admin/login', request.url));
+    // Limpa o cookie inválido
+    response.cookies.delete('admin-token');
+    return response;
   }
 }
 
-// Configura o middleware para rodar apenas nas rotas de admin
+// Configura o middleware para rodar APENAS em rotas de PÁGINAS do admin,
+// ignorando as rotas de API.
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: '/admin/((?!login|_next/static|_next/image|favicon.ico|api/).*)',
 };
