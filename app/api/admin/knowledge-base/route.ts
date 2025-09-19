@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 const ADM_KEY = process.env.ADM_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Função helper para verificar a autorização
+// Função helper para verificar a autenticação do admin
 async function verifyAuth() {
   if (!ADM_KEY) {
     throw new Error('ADM_KEY não está configurada no servidor.');
@@ -23,7 +23,7 @@ async function verifyAuth() {
 
 // Função para lidar com erros de forma padronizada
 function handleError(error: unknown): NextResponse {
-    console.error('[API_ERROR]', error);
+    console.error('[API_ERROR]', error); // Log do erro no servidor para depuração
     const message = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
     let status = 500;
     if (message.includes("Não autorizado") || message.includes("JWT")) {
@@ -36,23 +36,27 @@ function handleError(error: unknown): NextResponse {
 export async function GET() {
   try {
     await verifyAuth();
-    const kb = await prisma.knowledgeBase.findUnique({ where: { id: 1 } });
+    // Busca apenas os campos que o admin pode editar ou visualizar
+    const kb = await prisma.knowledgeBase.findUnique({ 
+        where: { id: 1 },
+        select: { rawInstructions: true, knowledgeText: true }
+    });
     return NextResponse.json(kb || {});
   } catch (error) {
     return handleError(error);
   }
 }
 
-// POST: Salva/Atualiza o prompt base e as instruções brutas
+// POST: Salva as instruções brutas como rascunho
 export async function POST(request: Request) {
   try {
     await verifyAuth();
-    const { basePrompt, rawInstructions } = await request.json();
+    const { rawInstructions } = await request.json();
 
     const updatedKb = await prisma.knowledgeBase.upsert({
       where: { id: 1 },
-      update: { basePrompt, rawInstructions },
-      create: { id: 1, basePrompt, rawInstructions, knowledgeText: '' }, // Garante que knowledgeText não seja nulo
+      update: { rawInstructions },
+      create: { id: 1, rawInstructions, knowledgeText: '' }, // Garante que outros campos não sejam nulos
     });
 
     return NextResponse.json(updatedKb);
@@ -89,15 +93,16 @@ export async function PUT(request: Request) {
     const result = await model.generateContent(prompt);
     const condensedText = result.response.text();
     
-    // CORREÇÃO: Usando 'upsert' em vez de 'update'
+    // Usa 'upsert' para atualizar o registro existente ou criar um novo se não existir
     const updatedKb = await prisma.knowledgeBase.upsert({
         where: { id: 1 },
-        update: { knowledgeText: condensedText },
+        update: { 
+            rawInstructions: rawInstructions || '', // Garante que o rascunho também seja salvo
+            knowledgeText: condensedText 
+        },
         create: { 
             id: 1, 
             knowledgeText: condensedText,
-            // Valores padrão para os outros campos caso o registro não exista
-            basePrompt: '', 
             rawInstructions: rawInstructions || '' 
         },
     });
